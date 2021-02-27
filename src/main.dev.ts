@@ -11,7 +11,7 @@
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 import path from 'path';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -129,4 +129,32 @@ app.on('activate', () => {
   // On macOS it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (mainWindow === null) createWindow();
+});
+
+ipcMain.addListener('login', (event, url) => {
+  console.log(url);
+  const udemyLoginWindow = new BrowserWindow({
+    height: 600,
+    width: 800,
+    modal: true,
+  });
+
+  udemyLoginWindow.loadURL(url);
+  udemyLoginWindow.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ['*://*.udemy.com/*'] },
+    function (request, callback) {
+      if (request.requestHeaders.Authorization) {
+        event.returnValue = request.requestHeaders.Authorization.split(' ')[1];
+        udemyLoginWindow.webContents.session.clearStorageData();
+        udemyLoginWindow.webContents.session.webRequest.onBeforeSendHeaders(
+          { urls: ['*://*.udemy.com/*'] },
+          function (request, callback) {
+            callback({ requestHeaders: request.requestHeaders });
+          }
+        );
+        udemyLoginWindow.destroy();
+      }
+      callback({ requestHeaders: request.requestHeaders });
+    }
+  );
 });
